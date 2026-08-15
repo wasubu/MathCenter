@@ -5,8 +5,8 @@ Debug := true ; Set to true to display terminal log in a MsgBox
 
 
 ; --- TARGET DIRECTORY ---
-; Parent folder of where this script is located
-SplitPath(A_ScriptDir, , &TargetDir)
+; Targets the exact folder where this .ahk script resides
+TargetDir := A_ScriptDir
 
 
 ; --- DATE & COMMAND SETUP ---
@@ -30,20 +30,16 @@ Confirm := MsgBox(
 if (Confirm = "Yes") {
     TempLog := A_Temp . "\git_sync_log.txt"
 
-    ; Delete old log file if present
     if FileExist(TempLog)
         FileDelete(TempLog)
 
     ; Redirect both stdout and stderr into a temp log file
     CmdToRun := A_ComSpec ' /c "(' GitCmd ') > "' TempLog '" 2>&1"'
 
-    ; Execute inside TargetDir
     ExitCode := RunWait(CmdToRun, TargetDir, "Hide")
 
-    ; Read captured output
     TerminalOutput := FileExist(TempLog) ? FileRead(TempLog) : "No output recorded."
 
-    ; Clean up
     if FileExist(TempLog)
         FileDelete(TempLog)
 
