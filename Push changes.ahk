@@ -1,71 +1,60 @@
 #Requires AutoHotkey v2.0
 
-; --- DIRECTORY SELECTION ---
-; Option A: The folder containing this script
-TargetDir := A_ScriptDir
+; --- CONFIGURATION ---
+Debug := true ; Set to true to display terminal log in a MsgBox
 
-; Option B: The PARENT folder of where this script is located (uncomment line below if needed)
-; SplitPath(A_ScriptDir, , &TargetDir)
+
+; --- TARGET DIRECTORY ---
+; Targets the exact folder where this .ahk script resides
+TargetDir := A_ScriptDir
 
 
 ; --- DATE & COMMAND SETUP ---
-; Formats current date (e.g., 2026Aug15)
-DateStr := FormatTime(, "yyyyMMMdd")
+Months := ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
+MonthNum := Number(FormatTime(, "M"))
+
+DateStr := FormatTime(, "yyyy") . Months[MonthNum] . FormatTime(, "dd")
 CommitMsg := "updated in " . DateStr
 
 ; Combined Git command chain
-GitCmd := 'git fetch origin && git pull && git add . && git commit -m "' CommitMsg '" && git push'
+GitCmd := 'git add . && git commit -m "' . CommitMsg . '" && git fetch origin && git pull --rebase && git push'
 
 
-; --- CREATE GUI TERMINAL WINDOW ---
-LogGui := Gui("+Resize", "Git Auto-Sync Log")
-LogGui.SetFont("s10", "Consolas")
-LogGui.BackColor := "0x1E1E1E" ; Dark background
+; --- CONFIRMATION PROMPT ---
+Confirm := MsgBox(
+    "Do you really want to commit and push changes in:`n" . TargetDir . "`n`nMessage: " . CommitMsg,
+    "Confirm Git Sync",
+    "YesNo Icon?"
+)
 
-; Terminal output box
-LogBox := LogGui.Add("Edit", "r22 w680 ReadOnly Multi -E0x200")
-LogBox.SetFont("c0xD4D4D4")   ; Light text
+if (Confirm = "Yes") {
+    TempLog := A_Temp . "\git_sync_log.txt"
 
-LogGui.OnEvent("Close", (*) => ExitApp())
-LogGui.Show()
+    if FileExist(TempLog)
+        FileDelete(TempLog)
 
+    ; Redirect both stdout and stderr into a temp log file
+    CmdToRun := A_ComSpec ' /c "(' GitCmd ') > "' TempLog '" 2>&1"'
 
-; --- EXECUTE COMMANDS ---
-RunGitSequence(TargetDir, GitCmd, LogBox)
+    ExitCode := RunWait(CmdToRun, TargetDir, "Hide")
 
+    TerminalOutput := FileExist(TempLog) ? FileRead(TempLog) : "No output recorded."
 
-; --- FUNCTIONS ---
-RunGitSequence(dir, cmd, logControl) {
-    Dashes := "------------------------------------------------------------"
+    if FileExist(TempLog)
+        FileDelete(TempLog)
 
-    AppendLog(logControl, "=== Starting Git Sync ===")
-    AppendLog(logControl, "Folder:  " . dir)
-    AppendLog(logControl, "Command: " . cmd . "`n" . Dashes . "`n")
-
-    shell := ComObject("WScript.Shell")
-    ; 2>&1 redirects standard errors to standard output so all messages show in the GUI
-    exec := shell.Exec(A_ComSpec ' /c "cd /d "' dir '" && ' cmd ' 2>&1"')
-
-    ; Stream terminal output in real time
-    while !exec.Status {
-        if !exec.StdOut.AtEndOfStream {
-            text := exec.StdOut.Read(200)
-            AppendLog(logControl, text, false)
+    if (Debug) {
+        MsgBox(
+            "Exit Code: " . ExitCode . "`n`n--- TERMINAL LOG ---`n" .
+            (TerminalOutput != "" ? TerminalOutput : "[Terminal returned no text]"),
+            "Git Debug Output",
+            "Iconi"
+        )
+    } else {
+        if (ExitCode = 0) {
+            MsgBox("Git sync completed successfully!", "Success", "Icon!")
+        } else {
+            MsgBox("Git process failed (Exit Code: " . ExitCode . "). Set Debug := true to view log.", "Error", "Icon!")
         }
-        Sleep(50)
     }
-
-    ; Read any remaining text after execution finishes
-    if !exec.StdOut.AtEndOfStream {
-        AppendLog(logControl, exec.StdOut.ReadAll(), false)
-    }
-
-    AppendLog(logControl, "`n" . Dashes)
-    AppendLog(logControl, "=== Process Completed (Exit Code: " . exec.ExitCode . ") ===")
-}
-
-AppendLog(control, text, addNewline := true) {
-    control.Value .= text . (addNewline ? "`n" : "")
-    ; Auto-scroll to the bottom of the Edit box (WM_VSCROLL = 0x0115, SB_BOTTOM = 7)
-    SendMessage(0x0115, 7, 0, control)
 }
