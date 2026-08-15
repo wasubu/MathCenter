@@ -1,0 +1,47 @@
+﻿#Requires AutoHotkey v2.0
+
+; --- CONFIGURATION ---
+Debug := true ; Set to true to display terminal log in a MsgBox
+
+
+; --- TARGET DIRECTORY ---
+; Targets the folder where this .ahk script resides
+TargetDir := A_ScriptDir
+
+
+; --- COMMAND SETUP ---
+GitCmd := 'git fetch origin && git pull'
+
+
+; --- EXECUTION ---
+TempLog := A_Temp . "\git_pull_log.txt"
+
+if FileExist(TempLog)
+    FileDelete(TempLog)
+
+; Redirect both stdout and stderr into a temp log file
+CmdToRun := A_ComSpec ' /c "(' GitCmd ') > "' TempLog '" 2>&1"'
+
+ExitCode := RunWait(CmdToRun, TargetDir, "Hide")
+
+TerminalOutput := FileExist(TempLog) ? FileRead(TempLog) : "No output recorded."
+
+if FileExist(TempLog)
+    FileDelete(TempLog)
+
+
+; --- NOTIFICATION ---
+if (Debug) {
+    MsgBox(
+        "Exit Code: " . ExitCode . "`n`n--- TERMINAL LOG ---`n" .
+        (TerminalOutput != "" ? TerminalOutput : "[Terminal returned no text]"),
+        "Git Pull Debug Output",
+        "Iconi"
+    )
+} else {
+    if (ExitCode = 0) {
+        MsgBox("Git fetch and pull completed successfully!", "Success", "Icon!")
+    } else {
+        MsgBox("Git pull failed (Exit Code: " . ExitCode . "). Set Debug := true to view log.", "Error", "Icon!")
+    }
+}

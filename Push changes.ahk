@@ -1,7 +1,7 @@
 #Requires AutoHotkey v2.0
 
 ; --- CONFIGURATION ---
-Debug := false ; Set to true to display terminal log in a MsgBox
+Debug := true ; Set to true to display terminal log in a MsgBox
 
 
 ; --- TARGET DIRECTORY ---
